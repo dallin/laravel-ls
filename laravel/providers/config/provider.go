@@ -73,14 +73,13 @@ func (p *Provider) ResolveCompletion(ctx provider.CompletionContext) {
 
 func (p *Provider) ResolveDefinition(ctx provider.DefinitionContext) {
 	node := queries.ConfigCalls(ctx.File).At(ctx.Position)
+	if node == nil {
+		return
+	}
 
 	repo, err := ctx.Project.Configs()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
-		return
-	}
-
-	if node == nil {
 		return
 	}
 
