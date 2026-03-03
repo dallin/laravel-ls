@@ -216,15 +216,10 @@ require'lspconfig'.laravel_ls.setup{
 ##### nvim => 0.11
 
 ```lua
-vim.lsp.enable('laravel_ls')
-```
-
-or custom config
-
-```lua
 vim.lsp.config('laravel_ls', {
     cmd = { …  },
 })
+vim.lsp.enable('laravel_ls')
 ```
 
 All settings can be found [here](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#laravel_ls)
