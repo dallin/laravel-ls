@@ -14,31 +14,20 @@ const (
 	TypeEnv
 )
 
-type checkFn func(string) bool
-
-func hasExtension(ext string) checkFn {
-	return func(filename string) bool {
-		return strings.HasSuffix(filename, ext)
-	}
-}
-
-func envFile(filename string) bool {
-	return filename == ".env" || strings.HasPrefix(filename, ".env.")
-}
-
 // TypeByFilename finds the filetype based on filename
 func TypeByFilename(filename string) Type {
-	lookup := map[Type]checkFn{
-		TypeBlade: hasExtension(".blade.php"),
-		TypePHP:   hasExtension(".php"),
-		TypeEnv:   envFile,
+	if strings.HasSuffix(filename, ".blade.php") {
+		return TypeBlade
+	}
+
+	if strings.HasSuffix(filename, ".php") {
+		return TypePHP
 	}
 
 	filename = path.Base(filename)
-	for typ, test := range lookup {
-		if ok := test(filename); ok {
-			return typ
-		}
+	if filename == ".env" || strings.HasPrefix(filename, ".env.") {
+		return TypeEnv
 	}
+
 	return TypeUnknown
 }
