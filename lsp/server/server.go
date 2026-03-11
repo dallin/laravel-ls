@@ -61,6 +61,9 @@ type Server struct {
 
 	providerManager *provider.Manager
 
+	// config is parsed from initializationOptions during the initialize handshake.
+	config LSPConfig
+
 	// conn is stored on first dispatch so we can send server-initiated requests.
 	conn     *jsonrpc2.Conn
 	connOnce sync.Once
@@ -345,6 +348,15 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitia
 		WithField("rootPath", rootPath).
 		Debug("Initialize")
 
+	if params.InitializationOptions != nil {
+		raw, err := json.Marshal(params.InitializationOptions)
+		if err == nil {
+			if err := json.Unmarshal(raw, &s.config); err != nil {
+				log.WithError(err).Warn("failed to parse initializationOptions")
+			}
+		}
+	}
+
 	s.providerManager.Init(provider.InitContext{
 		Logger:    log.WithField("module", "Initialize"),
 		RootPath:  rootPath,
@@ -365,7 +377,7 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitia
 				WorkspaceDiagnostics:  false,
 			},
 			CodeActionProvider: true,
-			InlayHintProvider:  true,
+			InlayHintProvider:  s.config.Capabilities.InlayHints.Routes.IsEnabled(),
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    program.Name,

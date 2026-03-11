@@ -5,7 +5,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/laravel-ls/laravel-ls/file"
 	"github.com/laravel-ls/laravel-ls/laravel/providers/route/queries"
@@ -17,16 +16,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const routeCacheTTL = 30 * time.Second
-
 type Provider struct {
 	rootPath string
 	project  *project.Project
 
-	mu             sync.Mutex
-	routeCache     repository.RouteRepository
-	routeCacheTime time.Time
-	routeGen       uint64 // incremented on invalidation; prevents stale PHP results from overwriting a cleared cache
+	mu         sync.Mutex
+	routeCache repository.RouteRepository
+	routeGen   uint64 // incremented on invalidation; prevents stale PHP results from overwriting a cleared cache
 }
 
 func NewProvider() *Provider {
@@ -64,21 +60,21 @@ func (p *Provider) OnFileSaved(filename string) <-chan struct{} {
 		if p.routeGen == gen {
 			log.WithField("routes", len(repo)).WithField("gen", gen).Debug("routes: pre-warm complete, storing in cache")
 			p.routeCache = repo
-			p.routeCacheTime = time.Now()
 		}
 		p.mu.Unlock()
 	}()
 	return done
 }
 
-// routes returns the route repository, using a short-lived cache to avoid
-// spawning a PHP process on every inlay hint refresh.
+// routes returns the route repository, cached in memory and invalidated on
+// routes file save. The first call after startup or invalidation spawns a
+// PHP process to load the routes; subsequent calls return the cached result.
 func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository, error) {
 	p.mu.Lock()
-	cache, cacheTime, gen := p.routeCache, p.routeCacheTime, p.routeGen
+	cache, gen := p.routeCache, p.routeGen
 	p.mu.Unlock()
 
-	if cache != nil && time.Since(cacheTime) < routeCacheTTL {
+	if cache != nil {
 		return cache, nil
 	}
 
@@ -92,7 +88,6 @@ func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository,
 	if p.routeGen == gen {
 		log.WithField("routes", len(repo)).WithField("gen", gen).Debug("routes: PHP call complete, storing in cache")
 		p.routeCache = repo
-		p.routeCacheTime = time.Now()
 	} else {
 		log.WithField("gen_expected", gen).WithField("gen_current", p.routeGen).Debug("routes: PHP result discarded (invalidated during call)")
 	}
