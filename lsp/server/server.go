@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/laravel-ls/laravel-ls/cache"
 	"github.com/laravel-ls/laravel-ls/parser"
@@ -59,6 +60,10 @@ type Server struct {
 	shutdownReceived bool
 
 	providerManager *provider.Manager
+
+	// conn is stored on first dispatch so we can send server-initiated requests.
+	conn     *jsonrpc2.Conn
+	connOnce sync.Once
 }
 
 func NewServer(providerManager *provider.Manager) *Server {
@@ -292,10 +297,26 @@ func (s Server) HandleTextDocumentDidChange(params protocol.DidChangeTextDocumen
 	return errs
 }
 
-func (s Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentParams) error {
+func (s *Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentParams) error {
 	log.WithField("method", protocol.MethodTextDocumentDidSave).
 		WithField("filename", params.TextDocument.URI).
 		Debug("Document saved")
+
+	filename, err := validateURI(params.TextDocument.URI)
+	if err != nil {
+		return err
+	}
+
+	if ch := s.providerManager.FileSaved(filename); ch != nil && s.conn != nil {
+		go func() {
+			<-ch // wait until cache is pre-warmed before telling client to refresh
+			var result any
+			if err := s.conn.Call(context.Background(), "workspace/inlayHint/refresh", nil, &result); err != nil {
+				log.WithError(err).Debug("workspace/inlayHint/refresh: client error")
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -384,6 +405,7 @@ func (s *Server) HandleTextDocumentInlayHint(params inlayHintParams) ([]inlayHin
 
 // Handle incoming LSP messages
 func (s *Server) dispatch(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) (any, error) {
+	s.connOnce.Do(func() { s.conn = conn })
 	switch req.Method {
 	case protocol.MethodTextDocumentCodeAction:
 		var params protocol.CodeActionParams

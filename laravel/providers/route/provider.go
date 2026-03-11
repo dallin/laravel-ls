@@ -3,6 +3,7 @@ package route
 import (
 	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,27 +13,64 @@ import (
 	"github.com/laravel-ls/laravel-ls/treesitter/php"
 	"github.com/laravel-ls/laravel-ls/utils/repository"
 	"github.com/laravel-ls/protocol"
+	log "github.com/sirupsen/logrus"
 )
 
 const routeCacheTTL = 30 * time.Second
 
 type Provider struct {
 	rootPath string
+	project  interface{ Routes() (repository.RouteRepository, error) }
 
 	mu             sync.Mutex
 	routeCache     repository.RouteRepository
 	routeCacheTime time.Time
+	routeGen       uint64 // incremented on invalidation; prevents stale PHP results from overwriting a cleared cache
 }
 
 func NewProvider() *Provider {
 	return &Provider{}
 }
 
+// OnFileSaved invalidates the route cache when a file under routes/ is saved.
+// Returns a channel that closes when the cache has been re-warmed via a fresh
+// PHP call, or nil if the file was not in the routes directory.
+func (p *Provider) OnFileSaved(filename string) <-chan struct{} {
+	routesDir := path.Join(p.rootPath, "routes") + "/"
+	if !strings.HasPrefix(filename, routesDir) {
+		return nil
+	}
+
+	p.mu.Lock()
+	p.routeCache = nil
+	p.routeGen++
+	gen := p.routeGen
+	p.mu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		repo, err := p.project.Routes()
+		if err != nil {
+			log.WithError(err).Debug("routes: OnFileSaved pre-warm failed")
+			return
+		}
+		p.mu.Lock()
+		if p.routeGen == gen {
+			log.WithField("routes", len(repo)).WithField("gen", gen).Debug("routes: pre-warm complete, storing in cache")
+			p.routeCache = repo
+			p.routeCacheTime = time.Now()
+		}
+		p.mu.Unlock()
+	}()
+	return done
+}
+
 // routes returns the route repository, using a short-lived cache to avoid
 // spawning a PHP process on every inlay hint refresh.
 func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository, error) {
 	p.mu.Lock()
-	cache, cacheTime := p.routeCache, p.routeCacheTime
+	cache, cacheTime, gen := p.routeCache, p.routeCacheTime, p.routeGen
 	p.mu.Unlock()
 
 	if cache != nil && time.Since(cacheTime) < routeCacheTTL {
@@ -45,8 +83,14 @@ func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository,
 	}
 
 	p.mu.Lock()
-	p.routeCache = repo
-	p.routeCacheTime = time.Now()
+	// Only write back if no invalidation happened while PHP was running.
+	if p.routeGen == gen {
+		log.WithField("routes", len(repo)).WithField("gen", gen).Debug("routes: PHP call complete, storing in cache")
+		p.routeCache = repo
+		p.routeCacheTime = time.Now()
+	} else {
+		log.WithField("gen_expected", gen).WithField("gen_current", p.routeGen).Debug("routes: PHP result discarded (invalidated during call)")
+	}
 	p.mu.Unlock()
 
 	return repo, nil
@@ -58,6 +102,7 @@ func (p *Provider) Register(manager *provider.Manager) {
 
 func (p *Provider) Init(ctx provider.InitContext) {
 	p.rootPath = ctx.RootPath
+	p.project = ctx.Project
 }
 
 func (p *Provider) Hover(ctx provider.HoverContext) {
