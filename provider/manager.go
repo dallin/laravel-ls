@@ -11,6 +11,7 @@ type Language struct {
 	DefinitionProviders  []DefinitionProvider
 	CodeActionProviders  []CodeActionProvider
 	HoverProviders       []HoverProvider
+	InlayHintProviders   []InlayHintProvider
 }
 
 type Manager struct {
@@ -55,6 +56,7 @@ func (m *Manager) Register(typ file.Type, provider any) {
 			DiagnosticsProviders: []DiagnosticProvider{},
 			DefinitionProviders:  []DefinitionProvider{},
 			HoverProviders:       []HoverProvider{},
+			InlayHintProviders:   []InlayHintProvider{},
 		}
 		lang = m.languages[typ]
 	}
@@ -77,6 +79,10 @@ func (m *Manager) Register(typ file.Type, provider any) {
 
 	if codeAction, ok := provider.(CodeActionProvider); ok {
 		lang.CodeActionProviders = append(lang.CodeActionProviders, codeAction)
+	}
+
+	if inlayHint, ok := provider.(InlayHintProvider); ok {
+		lang.InlayHintProviders = append(lang.InlayHintProviders, inlayHint)
 	}
 
 	m.languages[typ] = lang
@@ -123,6 +129,15 @@ func (m *Manager) Hover(ctx HoverContext) {
 	if providers, ok := m.languages[ctx.File.Type]; ok {
 		for _, provider := range providers.HoverProviders {
 			provider.Hover(ctx)
+		}
+	}
+}
+
+func (m *Manager) InlayHints(ctx InlayHintContext) {
+	ctx.Project = m.project
+	if providers, ok := m.languages[ctx.File.Type]; ok {
+		for _, provider := range providers.InlayHintProviders {
+			provider.ResolveInlayHints(ctx)
 		}
 	}
 }

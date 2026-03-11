@@ -3,20 +3,53 @@ package route
 import (
 	"fmt"
 	"path"
+	"sync"
+	"time"
 
 	"github.com/laravel-ls/laravel-ls/file"
 	"github.com/laravel-ls/laravel-ls/laravel/providers/route/queries"
 	"github.com/laravel-ls/laravel-ls/provider"
 	"github.com/laravel-ls/laravel-ls/treesitter/php"
+	"github.com/laravel-ls/laravel-ls/utils/repository"
 	"github.com/laravel-ls/protocol"
 )
 
+const routeCacheTTL = 30 * time.Second
+
 type Provider struct {
 	rootPath string
+
+	mu             sync.Mutex
+	routeCache     repository.RouteRepository
+	routeCacheTime time.Time
 }
 
 func NewProvider() *Provider {
 	return &Provider{}
+}
+
+// routes returns the route repository, using a short-lived cache to avoid
+// spawning a PHP process on every inlay hint refresh.
+func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository, error) {
+	p.mu.Lock()
+	cache, cacheTime := p.routeCache, p.routeCacheTime
+	p.mu.Unlock()
+
+	if cache != nil && time.Since(cacheTime) < routeCacheTTL {
+		return cache, nil
+	}
+
+	repo, err := ctx.Project.Routes()
+	if err != nil {
+		return nil, err
+	}
+
+	p.mu.Lock()
+	p.routeCache = repo
+	p.routeCacheTime = time.Now()
+	p.mu.Unlock()
+
+	return repo, nil
 }
 
 func (p *Provider) Register(manager *provider.Manager) {
@@ -38,7 +71,7 @@ func (p *Provider) Hover(ctx provider.HoverContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes(ctx.BaseContext)
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -62,7 +95,7 @@ func (p *Provider) ResolveCompletion(ctx provider.CompletionContext) {
 
 	text := php.GetStringContent(node, ctx.File.Src)
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes(ctx.BaseContext)
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -84,7 +117,7 @@ func (p *Provider) ResolveDefinition(ctx provider.DefinitionContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes(ctx.BaseContext)
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -101,7 +134,7 @@ func (p *Provider) Diagnostic(ctx provider.DiagnosticContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes(ctx.BaseContext)
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -130,7 +163,7 @@ func (p *Provider) ResolveCodeAction(ctx provider.CodeActionContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes(ctx.BaseContext)
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
