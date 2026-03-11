@@ -92,11 +92,9 @@ func (p *Provider) ResolveInlayHints(ctx provider.InlayHintContext) {
 			continue
 		}
 
-		label := fmt.Sprintf("[%s /%s]", route.Method, strings.TrimPrefix(route.URI, "/"))
-		ctx.Logger.WithField("label", label).WithField("method", methodName).Debug("inlay hints: publishing hint")
 		ctx.Publish(provider.InlayHint{
 			Position: pos,
-			Label:    label,
+			Label:    fmt.Sprintf("[%s /%s]", route.Method, strings.TrimPrefix(route.URI, "/")),
 		})
 	}
 }

@@ -14,6 +14,7 @@ type InlayHintContext struct {
 	Publish InlayHintPublish
 }
 
+// Interface that providers that support inlay hints can implement.
 type InlayHintProvider interface {
 	ResolveInlayHints(InlayHintContext)
 }

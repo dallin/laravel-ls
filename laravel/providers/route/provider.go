@@ -9,6 +9,7 @@ import (
 
 	"github.com/laravel-ls/laravel-ls/file"
 	"github.com/laravel-ls/laravel-ls/laravel/providers/route/queries"
+	"github.com/laravel-ls/laravel-ls/project"
 	"github.com/laravel-ls/laravel-ls/provider"
 	"github.com/laravel-ls/laravel-ls/treesitter/php"
 	"github.com/laravel-ls/laravel-ls/utils/repository"
@@ -20,7 +21,7 @@ const routeCacheTTL = 30 * time.Second
 
 type Provider struct {
 	rootPath string
-	project  interface{ Routes() (repository.RouteRepository, error) }
+	project  *project.Project
 
 	mu             sync.Mutex
 	routeCache     repository.RouteRepository
@@ -38,6 +39,10 @@ func NewProvider() *Provider {
 func (p *Provider) OnFileSaved(filename string) <-chan struct{} {
 	routesDir := path.Join(p.rootPath, "routes") + "/"
 	if !strings.HasPrefix(filename, routesDir) {
+		return nil
+	}
+
+	if p.project == nil {
 		return nil
 	}
 

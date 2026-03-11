@@ -56,6 +56,7 @@ func (m *Manager) Register(typ file.Type, provider any) {
 			CompletionProviders:  []CompletionProvider{},
 			DiagnosticsProviders: []DiagnosticProvider{},
 			DefinitionProviders:  []DefinitionProvider{},
+			CodeActionProviders:  []CodeActionProvider{},
 			HoverProviders:       []HoverProvider{},
 			InlayHintProviders:   []InlayHintProvider{},
 		}
