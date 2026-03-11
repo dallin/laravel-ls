@@ -6,18 +6,11 @@ package server
 // In Neovim (lsp/laravel_ls.lua), set these via init_options:
 //
 //	init_options = {
-//	  capabilities = {
-//	    inlayHints = {
-//	      routes = { enabled = false }
-//	    }
+//	  inlayHints = {
+//	    routes = { enabled = false }
 //	  }
 //	}
 type LSPConfig struct {
-	Capabilities CapabilitiesConfig `json:"capabilities"`
-}
-
-// CapabilitiesConfig controls which server capabilities are active.
-type CapabilitiesConfig struct {
 	InlayHints InlayHintsConfig `json:"inlayHints"`
 }
 

@@ -377,7 +377,7 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitia
 				WorkspaceDiagnostics:  false,
 			},
 			CodeActionProvider: true,
-			InlayHintProvider:  s.config.Capabilities.InlayHints.Routes.IsEnabled(),
+			InlayHintProvider:  s.config.InlayHints.Routes.IsEnabled(),
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    program.Name,
