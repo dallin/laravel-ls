@@ -3,20 +3,101 @@ package route
 import (
 	"fmt"
 	"path"
+	"strings"
+	"sync"
 
 	"github.com/laravel-ls/laravel-ls/file"
 	"github.com/laravel-ls/laravel-ls/laravel/providers/route/queries"
+	"github.com/laravel-ls/laravel-ls/project"
 	"github.com/laravel-ls/laravel-ls/provider"
 	"github.com/laravel-ls/laravel-ls/treesitter/php"
+	"github.com/laravel-ls/laravel-ls/utils/repository"
 	"github.com/laravel-ls/protocol"
+	log "github.com/sirupsen/logrus"
 )
 
 type Provider struct {
 	rootPath string
+	project  *project.Project
+
+	mu         sync.Mutex
+	routeCache repository.RouteRepository
+	routeGen   uint64 // incremented on invalidation; prevents stale PHP results from overwriting a cleared cache
 }
 
 func NewProvider() *Provider {
 	return &Provider{}
+}
+
+// OnFileSaved invalidates the route cache when a file under routes/ is saved.
+// Returns a channel that closes when the cache has been re-warmed via a fresh
+// PHP call, or nil if the file was not in the routes directory.
+func (p *Provider) OnFileSaved(filename string) <-chan struct{} {
+	routesDir := path.Join(p.rootPath, "routes") + "/"
+	if !strings.HasPrefix(filename, routesDir) {
+		return nil
+	}
+
+	if p.project == nil {
+		return nil
+	}
+
+	p.mu.Lock()
+	p.routeCache = nil
+	p.routeGen++
+	gen := p.routeGen
+	p.mu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		repo, err := p.project.Routes()
+		if err != nil {
+			log.WithError(err).Debug("routes: OnFileSaved pre-warm failed")
+			return
+		}
+		p.mu.Lock()
+		if p.routeGen == gen {
+			log.WithField("routes", len(repo)).WithField("gen", gen).Debug("routes: pre-warm complete, storing in cache")
+			p.routeCache = repo
+		}
+		p.mu.Unlock()
+	}()
+	return done
+}
+
+// routes returns the route repository, cached in memory and invalidated on
+// routes file save. The first call after startup or invalidation spawns a
+// PHP process to load the routes; subsequent calls return the cached result.
+func (p *Provider) routes() (repository.RouteRepository, error) {
+	p.mu.Lock()
+	cache, gen := p.routeCache, p.routeGen
+	p.mu.Unlock()
+
+	if cache != nil {
+		return cache, nil
+	}
+
+	if p.project == nil {
+		return nil, fmt.Errorf("routes: provider not initialized")
+	}
+
+	repo, err := p.project.Routes()
+	if err != nil {
+		return nil, err
+	}
+
+	p.mu.Lock()
+	// Only write back if no invalidation happened while PHP was running.
+	if p.routeGen == gen {
+		log.WithField("routes", len(repo)).WithField("gen", gen).Debug("routes: PHP call complete, storing in cache")
+		p.routeCache = repo
+	} else {
+		log.WithField("gen_expected", gen).WithField("gen_current", p.routeGen).Debug("routes: PHP result discarded (invalidated during call)")
+	}
+	p.mu.Unlock()
+
+	return repo, nil
 }
 
 func (p *Provider) Register(manager *provider.Manager) {
@@ -25,6 +106,7 @@ func (p *Provider) Register(manager *provider.Manager) {
 
 func (p *Provider) Init(ctx provider.InitContext) {
 	p.rootPath = ctx.RootPath
+	p.project = ctx.Project
 }
 
 func (p *Provider) Hover(ctx provider.HoverContext) {
@@ -38,7 +120,7 @@ func (p *Provider) Hover(ctx provider.HoverContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -62,7 +144,7 @@ func (p *Provider) ResolveCompletion(ctx provider.CompletionContext) {
 
 	text := php.GetStringContent(node, ctx.File.Src)
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -84,7 +166,7 @@ func (p *Provider) ResolveDefinition(ctx provider.DefinitionContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -101,7 +183,7 @@ func (p *Provider) Diagnostic(ctx provider.DiagnosticContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -130,7 +212,7 @@ func (p *Provider) ResolveCodeAction(ctx provider.CodeActionContext) {
 		return
 	}
 
-	repo, err := ctx.Project.Routes()
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return

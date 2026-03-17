@@ -24,6 +24,33 @@ var (
 	ErrFailedToGetPointAtCursor = errors.New("failed to get node at cursor")
 )
 
+// Local types for inlay hint support (not yet in protocol package)
+type inlayHintParams struct {
+	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
+	Range        protocol.Range                  `json:"range"`
+}
+
+type inlayHintResponse struct {
+	Position protocol.Position `json:"position"`
+	Label    string            `json:"label"`
+}
+
+// localServerCapabilities extends protocol.ServerCapabilities with inlay hint support.
+type localServerCapabilities struct {
+	TextDocumentSync   protocol.TextDocumentSyncKind `json:"textDocumentSync"`
+	HoverProvider      bool                          `json:"hoverProvider"`
+	CompletionProvider *protocol.CompletionOptions   `json:"completionProvider,omitempty"`
+	DefinitionProvider bool                          `json:"definitionProvider"`
+	DiagnosticProvider protocol.DiagnosticOptions    `json:"diagnosticProvider"`
+	CodeActionProvider bool                          `json:"codeActionProvider"`
+	InlayHintProvider  bool                          `json:"inlayHintProvider"`
+}
+
+type localInitializeResult struct {
+	Capabilities localServerCapabilities `json:"capabilities"`
+	ServerInfo   *protocol.ServerInfo    `json:"serverInfo,omitempty"`
+}
+
 type Server struct {
 	// Map of open files for this session
 	cache *cache.FileCache
@@ -33,6 +60,9 @@ type Server struct {
 	shutdownReceived bool
 
 	providerManager *provider.Manager
+
+	// config is parsed from initializationOptions during the initialize handshake.
+	config LSPConfig
 }
 
 func NewServer(providerManager *provider.Manager) *Server {
@@ -266,10 +296,21 @@ func (s Server) HandleTextDocumentDidChange(params protocol.DidChangeTextDocumen
 	return errs
 }
 
-func (s Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentParams) error {
+func (s *Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentParams) error {
 	log.WithField("method", protocol.MethodTextDocumentDidSave).
 		WithField("filename", params.TextDocument.URI).
 		Debug("Document saved")
+
+	filename, err := validateURI(params.TextDocument.URI)
+	if err != nil {
+		return err
+	}
+
+	// Fire-and-forget: the returned channel closes when providers finish
+	// re-warming, but the server does not wait for it. Callers that need to
+	// synchronise on cache readiness should await the channel themselves.
+	_ = s.providerManager.FileSaved(filename)
+
 	return nil
 }
 
@@ -286,17 +327,26 @@ func (s Server) HandleTextDocumentDidClose(params protocol.DidCloseTextDocumentP
 	return s.cache.Close(filename)
 }
 
-func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.InitializeResult, error) {
+func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitializeResult, error) {
 	rootPath, err := validateURI(string(params.RootURI))
 	if err == ErrNonLocalPath {
-		return protocol.InitializeResult{}, fmt.Errorf("server only support local filesystem root paths")
+		return localInitializeResult{}, fmt.Errorf("server only support local filesystem root paths")
 	} else if err != nil {
-		return protocol.InitializeResult{}, err
+		return localInitializeResult{}, err
 	}
 
 	log.WithField("method", protocol.MethodInitialize).
 		WithField("rootPath", rootPath).
 		Debug("Initialize")
+
+	if params.InitializationOptions != nil {
+		raw, err := json.Marshal(params.InitializationOptions)
+		if err != nil {
+			log.WithError(err).Warn("failed to marshal initializationOptions")
+		} else if err := json.Unmarshal(raw, &s.config); err != nil {
+			log.WithError(err).Warn("failed to parse initializationOptions")
+		}
+	}
 
 	s.providerManager.Init(provider.InitContext{
 		Logger:    log.WithField("module", "Initialize"),
@@ -305,8 +355,8 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.In
 	})
 
 	// Respond with capabilities
-	return protocol.InitializeResult{
-		Capabilities: protocol.ServerCapabilities{
+	return localInitializeResult{
+		Capabilities: localServerCapabilities{
 			TextDocumentSync: protocol.TextDocumentSyncKindIncremental,
 			HoverProvider:    true,
 			CompletionProvider: &protocol.CompletionOptions{
@@ -318,12 +368,46 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.In
 				WorkspaceDiagnostics:  false,
 			},
 			CodeActionProvider: true,
+			InlayHintProvider:  s.config.InlayHints.Routes.IsEnabled(),
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    program.Name,
 			Version: program.Version(),
 		},
 	}, nil
+}
+
+func (s *Server) HandleTextDocumentInlayHint(params inlayHintParams) ([]inlayHintResponse, error) {
+	log.WithField("method", "textDocument/inlayHint").
+		WithField("filename", params.TextDocument.URI).
+		Debug("InlayHint")
+
+	if !s.config.InlayHints.Routes.IsEnabled() {
+		return []inlayHintResponse{}, nil
+	}
+
+	response := []inlayHintResponse{}
+
+	file, err := s.getFile(params.TextDocument)
+	if err != nil {
+		return response, err
+	}
+
+	s.providerManager.InlayHints(provider.InlayHintContext{
+		BaseContext: provider.BaseContext{
+			Logger:    log.WithField("module", "InlayHint"),
+			File:      file,
+			FileCache: s.cache,
+		},
+		Publish: func(hint provider.InlayHint) {
+			response = append(response, inlayHintResponse{
+				Position: FromTSPoint(hint.Position),
+				Label:    hint.Label,
+			})
+		},
+	})
+
+	return response, nil
 }
 
 // Handle incoming LSP messages
@@ -393,6 +477,14 @@ func (s *Server) dispatch(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc
 		log.WithField("method", protocol.MethodInitialized).
 			Debug("Initialized")
 		return nil, nil
+	// "textDocument/inlayHint" is used as a string literal because the
+	// protocol package does not yet define a constant for this method.
+	case "textDocument/inlayHint":
+		var params inlayHintParams
+		if err := json.Unmarshal(*req.Params, &params); err != nil {
+			return nil, err
+		}
+		return s.HandleTextDocumentInlayHint(params)
 	case "$/cancelRequest":
 		// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#cancelRequest
 		// TODO: Maybe implement a way to cancel requests?

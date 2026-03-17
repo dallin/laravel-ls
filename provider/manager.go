@@ -11,6 +11,7 @@ type Language struct {
 	DefinitionProviders  []DefinitionProvider
 	CodeActionProviders  []CodeActionProvider
 	HoverProviders       []HoverProvider
+	InlayHintProviders   []InlayHintProvider
 }
 
 type Manager struct {
@@ -34,6 +35,7 @@ func (m *Manager) Init(ctx InitContext) {
 		ctx.Logger.WithError(err).Warn("failed to find binary")
 	}
 
+	ctx.Project = m.project
 	for _, provider := range m.providers {
 		provider.Init(ctx)
 	}
@@ -54,7 +56,9 @@ func (m *Manager) Register(typ file.Type, provider any) {
 			CompletionProviders:  []CompletionProvider{},
 			DiagnosticsProviders: []DiagnosticProvider{},
 			DefinitionProviders:  []DefinitionProvider{},
+			CodeActionProviders:  []CodeActionProvider{},
 			HoverProviders:       []HoverProvider{},
+			InlayHintProviders:   []InlayHintProvider{},
 		}
 		lang = m.languages[typ]
 	}
@@ -77,6 +81,10 @@ func (m *Manager) Register(typ file.Type, provider any) {
 
 	if codeAction, ok := provider.(CodeActionProvider); ok {
 		lang.CodeActionProviders = append(lang.CodeActionProviders, codeAction)
+	}
+
+	if inlayHint, ok := provider.(InlayHintProvider); ok {
+		lang.InlayHintProviders = append(lang.InlayHintProviders, inlayHint)
 	}
 
 	m.languages[typ] = lang
@@ -125,4 +133,38 @@ func (m *Manager) Hover(ctx HoverContext) {
 			provider.Hover(ctx)
 		}
 	}
+}
+
+func (m *Manager) InlayHints(ctx InlayHintContext) {
+	ctx.Project = m.project
+	if providers, ok := m.languages[ctx.File.Type]; ok {
+		for _, provider := range providers.InlayHintProviders {
+			provider.ResolveInlayHints(ctx)
+		}
+	}
+}
+
+// FileSaved notifies all providers of a file save. Returns a channel that
+// closes when all providers have finished re-warming their caches, or nil if
+// no provider was affected.
+func (m *Manager) FileSaved(filename string) <-chan struct{} {
+	var chans []<-chan struct{}
+	for _, provider := range m.providers {
+		if p, ok := provider.(FileSaveProvider); ok {
+			if ch := p.OnFileSaved(filename); ch != nil {
+				chans = append(chans, ch)
+			}
+		}
+	}
+	if len(chans) == 0 {
+		return nil
+	}
+	done := make(chan struct{})
+	go func() {
+		for _, ch := range chans {
+			<-ch
+		}
+		close(done)
+	}()
+	return done
 }
