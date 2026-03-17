@@ -27,6 +27,7 @@ var (
 // Local types for inlay hint support (not yet in protocol package)
 type inlayHintParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
+	Range        protocol.Range                  `json:"range"`
 }
 
 type inlayHintResponse struct {
@@ -305,7 +306,10 @@ func (s *Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentPa
 		return err
 	}
 
-	s.providerManager.FileSaved(filename)
+	// Fire-and-forget: the returned channel closes when providers finish
+	// re-warming, but the server does not wait for it. Callers that need to
+	// synchronise on cache readiness should await the channel themselves.
+	_ = s.providerManager.FileSaved(filename)
 
 	return nil
 }
@@ -337,10 +341,10 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitia
 
 	if params.InitializationOptions != nil {
 		raw, err := json.Marshal(params.InitializationOptions)
-		if err == nil {
-			if err := json.Unmarshal(raw, &s.config); err != nil {
-				log.WithError(err).Warn("failed to parse initializationOptions")
-			}
+		if err != nil {
+			log.WithError(err).Warn("failed to marshal initializationOptions")
+		} else if err := json.Unmarshal(raw, &s.config); err != nil {
+			log.WithError(err).Warn("failed to parse initializationOptions")
 		}
 	}
 
@@ -377,6 +381,10 @@ func (s *Server) HandleTextDocumentInlayHint(params inlayHintParams) ([]inlayHin
 	log.WithField("method", "textDocument/inlayHint").
 		WithField("filename", params.TextDocument.URI).
 		Debug("InlayHint")
+
+	if !s.config.InlayHints.Routes.IsEnabled() {
+		return []inlayHintResponse{}, nil
+	}
 
 	response := []inlayHintResponse{}
 
@@ -469,6 +477,8 @@ func (s *Server) dispatch(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc
 		log.WithField("method", protocol.MethodInitialized).
 			Debug("Initialized")
 		return nil, nil
+	// "textDocument/inlayHint" is used as a string literal because the
+	// protocol package does not yet define a constant for this method.
 	case "textDocument/inlayHint":
 		var params inlayHintParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {

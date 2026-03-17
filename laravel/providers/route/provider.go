@@ -69,7 +69,7 @@ func (p *Provider) OnFileSaved(filename string) <-chan struct{} {
 // routes returns the route repository, cached in memory and invalidated on
 // routes file save. The first call after startup or invalidation spawns a
 // PHP process to load the routes; subsequent calls return the cached result.
-func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository, error) {
+func (p *Provider) routes() (repository.RouteRepository, error) {
 	p.mu.Lock()
 	cache, gen := p.routeCache, p.routeGen
 	p.mu.Unlock()
@@ -78,7 +78,11 @@ func (p *Provider) routes(ctx provider.BaseContext) (repository.RouteRepository,
 		return cache, nil
 	}
 
-	repo, err := ctx.Project.Routes()
+	if p.project == nil {
+		return nil, fmt.Errorf("routes: provider not initialized")
+	}
+
+	repo, err := p.project.Routes()
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +120,7 @@ func (p *Provider) Hover(ctx provider.HoverContext) {
 		return
 	}
 
-	repo, err := p.routes(ctx.BaseContext)
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -140,7 +144,7 @@ func (p *Provider) ResolveCompletion(ctx provider.CompletionContext) {
 
 	text := php.GetStringContent(node, ctx.File.Src)
 
-	repo, err := p.routes(ctx.BaseContext)
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -162,7 +166,7 @@ func (p *Provider) ResolveDefinition(ctx provider.DefinitionContext) {
 		return
 	}
 
-	repo, err := p.routes(ctx.BaseContext)
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -179,7 +183,7 @@ func (p *Provider) Diagnostic(ctx provider.DiagnosticContext) {
 		return
 	}
 
-	repo, err := p.routes(ctx.BaseContext)
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return
@@ -208,7 +212,7 @@ func (p *Provider) ResolveCodeAction(ctx provider.CodeActionContext) {
 		return
 	}
 
-	repo, err := p.routes(ctx.BaseContext)
+	repo, err := p.routes()
 	if err != nil {
 		ctx.Logger.WithError(err).Warn("failed to get repo")
 		return

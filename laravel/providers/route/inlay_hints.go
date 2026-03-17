@@ -66,7 +66,7 @@ func parseControllerInfo(file *parser.File) *controllerInfo {
 }
 
 func (p *Provider) ResolveInlayHints(ctx provider.InlayHintContext) {
-	repo, err := p.routes(ctx.BaseContext)
+	repo, err := p.routes()
 	if err != nil {
 		return
 	}
@@ -76,9 +76,13 @@ func (p *Provider) ResolveInlayHints(ctx provider.InlayHintContext) {
 		return
 	}
 
+	fqnParts := strings.Split(info.FQN, "\\")
+	classBaseName := fqnParts[len(fqnParts)-1]
+
 	for _, route := range repo {
 		parts := strings.SplitN(route.Action, "@", 2)
-		if parts[0] != info.FQN && !strings.HasSuffix(info.FQN, "\\"+parts[0]) {
+		// Match by full FQN (e.g. "App\Http\Controllers\HomeController") or by unqualified class name (e.g. "HomeController").
+		if parts[0] != info.FQN && parts[0] != classBaseName {
 			continue
 		}
 
