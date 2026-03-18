@@ -33,6 +33,7 @@ func (p *Provider) Init(ctx provider.InitContext) {
 func (p *Provider) Register(manager *provider.Manager) {
 	manager.Register(file.TypePHP, p)
 	manager.Register(file.TypeBlade, p)
+	manager.Register(file.TypeTinker, p)
 }
 
 // resolve view() calls to view files.
