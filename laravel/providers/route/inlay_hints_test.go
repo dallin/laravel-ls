@@ -157,8 +157,6 @@ class HomeController
 	})
 
 	t.Run("class name that is a suffix of another does not match", func(t *testing.T) {
-		// "Controller" must not match a class named "HomeController" — this was
-		// the false-positive risk with the old HasSuffix approach.
 		p := providerWithRoutes(repository.RouteEntry{
 			Method: "GET", URI: "/", Action: `Controller@index`,
 		})
