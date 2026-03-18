@@ -32,7 +32,6 @@ func TypeByFilename(filename string) Type {
 	filename = path.Base(filename)
 	if filename == ".env" || strings.HasPrefix(filename, ".env.") {
 		return TypeEnv
-
 	}
 
 	return TypeUnknown
