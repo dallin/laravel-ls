@@ -12,6 +12,7 @@ const (
 	TypePHP
 	TypeBlade
 	TypeEnv
+	TypeTinker
 )
 
 // TypeByFilename finds the filetype based on filename
@@ -24,9 +25,14 @@ func TypeByFilename(filename string) Type {
 		return TypePHP
 	}
 
+	if strings.HasSuffix(filename, ".tinker") {
+		return TypeTinker
+	}
+
 	filename = path.Base(filename)
 	if filename == ".env" || strings.HasPrefix(filename, ".env.") {
 		return TypeEnv
+
 	}
 
 	return TypeUnknown

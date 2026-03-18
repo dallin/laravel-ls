@@ -41,6 +41,8 @@ func FiletypeToLanguage(t file.Type) Identifier {
 	switch t {
 	case file.TypePHP:
 		return PHP
+	case file.TypeTinker:
+		return PHP
 	case file.TypeBlade:
 		return Blade
 	case file.TypeEnv:
