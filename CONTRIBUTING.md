@@ -16,12 +16,10 @@ To contribute and run the project locally, you’ll need the following tools ins
   * **Linux/macOS:** Preinstalled (on most systems, otherwise consult your distros documentation)
   * **Windows:** Use via WSL, Git Bash, or install from [GNUWin](http://gnuwin32.sourceforge.net/packages/make.htm)
 
-* [GolangCI-Lint](https://golangci-lint.run/usage/install/) - Linter for Go code
-
-  Install via:
+* [GolangCI-Lint](https://golangci-lint.run/docs/welcome/install/local/) - Linter for Go code
 
   ```bash
-  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+  go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.3
   ```
 
 * **C Compiler (for cgo)**
