@@ -108,5 +108,8 @@ to the appropriate `provider`
 * Use meaningful commit messages
 * Don't commit everything into one large commit. Keep them atomic and focused
 
+TIP: use the `format and organize imports` on save functionality of gopls if you can.
+Checkout the [documentation](https://go.dev/gopls/#editors) for your editor.
+
 Feel free to open issues, suggest features, or submit pull requests!
 
