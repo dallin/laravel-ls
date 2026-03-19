@@ -10,6 +10,8 @@
     <a href="#install">Install</a>
     |
     <a href="#build">Building</a>
+    |
+    <a href="#configuration">Configuration</a>
 </p>
 
 <div align="center">
@@ -194,6 +196,47 @@ binary `build/laravel-ls`.
 
 * [Neovim](docs/editors/neovim.md)
 
+## Configuration
+
+There are numerous ways to configure the LSP server.
+
+### Config file
+
+`laravel-ls` loads optional configuration from either:
+
+- current working directory (`.`)
+- `--basePath` directory (default `~/.local/laravel-ls`)
+
+The config uses these keys:
+
+```yaml
+log:
+    filename: log
+level: info
+```
+
+- `log.filename`: log file name relative to `basePath`
+- `log.level`: one of `panic`, `fatal`, `error`, `warning`, `info`, `debug`, `trace`
+
+
+### CLI parameters
+
+CLI flags and config file values are mapped to the same settings. If both are set,
+use CLI flags to override the config file.
+
+```text
+--basePath string    base path (default "~/.local/laravel-ls")
+--log string         Log file, relative to basePath (default "log")
+--log-level string   Logging level, one of: [panic fatal error warning info debug trace] (default "info")
+-v, --version        show version
+-h, --help           show help
+```
+
+Example:
+
+```sh
+laravel-ls --basePath "$HOME/.config/laravel-ls" --log laravel-ls.log --log-level debug
+```
 
 ## Author
 
