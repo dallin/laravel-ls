@@ -23,6 +23,11 @@ func Test_TypeByFilename(t *testing.T) {
 			expected: file.TypePHP,
 		},
 		{
+			name:     "Tinker",
+			filename: "/path/to/file.tinker",
+			expected: file.TypeTinker,
+		},
+		{
 			name:     "Env",
 			filename: "/path/to/.env",
 			expected: file.TypeEnv,

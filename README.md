@@ -10,6 +10,8 @@
     <a href="#install">Install</a>
     |
     <a href="#build">Building</a>
+    |
+    <a href="#configuration">Configuration</a>
 </p>
 
 <div align="center">
@@ -190,69 +192,51 @@ The project officially supports building Windows and Linux binaries. But some us
 When the dependencies are met, running `make` will compile and produce the
 binary `build/laravel-ls`.
 
-## Configure
+## Configure your editor
 
-### Neovim
+* [Neovim](docs/editors/neovim.md)
 
-#### nvim-lspconfig
+## Configuration
 
-##### nvim < 0.11
+There are numerous ways to configure the LSP server.
 
-```lua
-require'lspconfig'.laravel_ls.setup{}
+### Config file
+
+`laravel-ls` loads optional configuration from either:
+
+- current working directory (`.`)
+- `--basePath` directory (default `~/.local/laravel-ls`)
+
+The config uses these keys:
+
+```yaml
+log:
+    filename: log
+level: info
 ```
 
-or custom config 
+- `log.filename`: log file name relative to `basePath`
+- `log.level`: one of `panic`, `fatal`, `error`, `warning`, `info`, `debug`, `trace`
 
-```lua
-require'lspconfig'.laravel_ls.setup{
-    -- Server-specific settings. See `:help lspconfig-setup`
-    settings = {
-        cmd = { …  },
-    },
-}
+
+### CLI parameters
+
+CLI flags and config file values are mapped to the same settings. If both are set,
+use CLI flags to override the config file.
+
+```text
+--basePath string    base path (default "~/.local/laravel-ls")
+--log string         Log file, relative to basePath (default "log")
+--log-level string   Logging level, one of: [panic fatal error warning info debug trace] (default "info")
+-v, --version        show version
+-h, --help           show help
 ```
 
-##### nvim => 0.11
+Example:
 
-```lua
-vim.lsp.config('laravel_ls', {
-    cmd = { …  },
-})
-vim.lsp.enable('laravel_ls')
+```sh
+laravel-ls --basePath "$HOME/.config/laravel-ls" --log laravel-ls.log --log-level debug
 ```
-
-All settings can be found [here](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.md#laravel_ls)
-
-#### native
-
-The LSP server can be started like any other server via `vim.lsp.start` and an auto-command.
-
-Just change the path to the correct directory on your filesystem
-
-```lua
-vim.api.nvim_create_autocmd("FileType", {
-    pattern = { "php", "blade" },
-    callback = function ()
-        vim.lsp.start({
-            name = "laravel-ls",
-
-            -- if laravel ls is in your $PATH
-            cmd = { 'laravel-ls' },
-            
-            -- Absolute path
-            -- cmd = { '/path/to/laravel-ls/build/laravel-ls' },
-            
-            -- if you want to recompile everytime
-            -- the language server is started.
-            -- cmd = { '/path/to/laravel-ls/start.sh' },
-
-            root_dir = vim.fn.getcwd(),
-        })
-    end
-})
-```
-
 
 ## Author
 

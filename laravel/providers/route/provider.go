@@ -102,6 +102,7 @@ func (p *Provider) routes() (repository.RouteRepository, error) {
 
 func (p *Provider) Register(manager *provider.Manager) {
 	manager.Register(file.TypePHP, p)
+	manager.Register(file.TypeTinker, p)
 }
 
 func (p *Provider) Init(ctx provider.InitContext) {
