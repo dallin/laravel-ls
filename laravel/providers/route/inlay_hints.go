@@ -68,6 +68,7 @@ func parseControllerInfo(file *parser.File) *controllerInfo {
 func (p *Provider) ResolveInlayHints(ctx provider.InlayHintContext) {
 	repo, err := p.routes()
 	if err != nil {
+		ctx.Logger.WithError(err).Warn("inlay hints: failed to get routes")
 		return
 	}
 

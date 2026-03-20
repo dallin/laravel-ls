@@ -24,32 +24,6 @@ var (
 	ErrFailedToGetPointAtCursor = errors.New("failed to get node at cursor")
 )
 
-// Local types for inlay hint support (not yet in protocol package)
-type inlayHintParams struct {
-	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
-	Range        protocol.Range                  `json:"range"`
-}
-
-type inlayHintResponse struct {
-	Position protocol.Position `json:"position"`
-	Label    string            `json:"label"`
-}
-
-// localServerCapabilities extends protocol.ServerCapabilities with inlay hint support.
-type localServerCapabilities struct {
-	TextDocumentSync   protocol.TextDocumentSyncKind `json:"textDocumentSync"`
-	HoverProvider      bool                          `json:"hoverProvider"`
-	CompletionProvider *protocol.CompletionOptions   `json:"completionProvider,omitempty"`
-	DefinitionProvider bool                          `json:"definitionProvider"`
-	DiagnosticProvider protocol.DiagnosticOptions    `json:"diagnosticProvider"`
-	CodeActionProvider bool                          `json:"codeActionProvider"`
-	InlayHintProvider  bool                          `json:"inlayHintProvider"`
-}
-
-type localInitializeResult struct {
-	Capabilities localServerCapabilities `json:"capabilities"`
-	ServerInfo   *protocol.ServerInfo    `json:"serverInfo,omitempty"`
-}
 
 type Server struct {
 	// Map of open files for this session
@@ -327,12 +301,12 @@ func (s Server) HandleTextDocumentDidClose(params protocol.DidCloseTextDocumentP
 	return s.cache.Close(filename)
 }
 
-func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitializeResult, error) {
+func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.InitializeResult, error) {
 	rootPath, err := validateURI(string(params.RootURI))
 	if err == ErrNonLocalPath {
-		return localInitializeResult{}, fmt.Errorf("server only support local filesystem root paths")
+		return protocol.InitializeResult{}, fmt.Errorf("server only support local filesystem root paths")
 	} else if err != nil {
-		return localInitializeResult{}, err
+		return protocol.InitializeResult{}, err
 	}
 
 	log.WithField("method", protocol.MethodInitialize).
@@ -355,8 +329,8 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitia
 	})
 
 	// Respond with capabilities
-	return localInitializeResult{
-		Capabilities: localServerCapabilities{
+	return protocol.InitializeResult{
+		Capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: protocol.TextDocumentSyncKindIncremental,
 			HoverProvider:    true,
 			CompletionProvider: &protocol.CompletionOptions{
@@ -377,16 +351,16 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (localInitia
 	}, nil
 }
 
-func (s *Server) HandleTextDocumentInlayHint(params inlayHintParams) ([]inlayHintResponse, error) {
-	log.WithField("method", "textDocument/inlayHint").
+func (s *Server) HandleTextDocumentInlayHint(params protocol.InlayHintParams) ([]protocol.InlayHint, error) {
+	log.WithField("method", protocol.MethodTextDocumentInlayHint).
 		WithField("filename", params.TextDocument.URI).
 		Debug("InlayHint")
 
-	if !s.config.InlayHints.Routes.IsEnabled() {
-		return []inlayHintResponse{}, nil
-	}
+	response := []protocol.InlayHint{}
 
-	response := []inlayHintResponse{}
+	if !s.config.InlayHints.Routes.IsEnabled() {
+		return response, nil
+	}
 
 	file, err := s.getFile(params.TextDocument)
 	if err != nil {
@@ -399,10 +373,13 @@ func (s *Server) HandleTextDocumentInlayHint(params inlayHintParams) ([]inlayHin
 			File:      file,
 			FileCache: s.cache,
 		},
+		Range: toTSRange(params.Range),
 		Publish: func(hint provider.InlayHint) {
-			response = append(response, inlayHintResponse{
+			response = append(response, protocol.InlayHint{
 				Position: FromTSPoint(hint.Position),
-				Label:    hint.Label,
+				Label: protocol.InlayHintLabel{
+					String: &hint.Label,
+				},
 			})
 		},
 	})
@@ -477,10 +454,8 @@ func (s *Server) dispatch(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc
 		log.WithField("method", protocol.MethodInitialized).
 			Debug("Initialized")
 		return nil, nil
-	// "textDocument/inlayHint" is used as a string literal because the
-	// protocol package does not yet define a constant for this method.
-	case "textDocument/inlayHint":
-		var params inlayHintParams
+	case protocol.MethodTextDocumentInlayHint:
+		var params protocol.InlayHintParams
 		if err := json.Unmarshal(*req.Params, &params); err != nil {
 			return nil, err
 		}
