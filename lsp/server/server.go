@@ -24,7 +24,6 @@ var (
 	ErrFailedToGetPointAtCursor = errors.New("failed to get node at cursor")
 )
 
-
 type Server struct {
 	// Map of open files for this session
 	cache *cache.FileCache
@@ -375,8 +374,10 @@ func (s *Server) HandleTextDocumentInlayHint(params protocol.InlayHintParams) ([
 		},
 		Range: toTSRange(params.Range),
 		Publish: func(hint provider.InlayHint) {
+			paddingLeft := true
 			response = append(response, protocol.InlayHint{
-				Position: FromTSPoint(hint.Position),
+				Position:    FromTSPoint(hint.Position),
+				PaddingLeft: &paddingLeft,
 				Label: protocol.InlayHintLabel{
 					String: &hint.Label,
 				},

@@ -11,6 +11,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestLineEndColumn(t *testing.T) {
+	tests := []struct {
+		name   string
+		src    string
+		row    uint
+		expect uint
+	}{
+		{"first line", "hello\nworld", 0, 5},
+		{"second line", "hello\nworld", 1, 5},
+		{"blank line", "foo\n\nbar", 1, 0},
+		{"last line no newline", "abc", 0, 3},
+		{"row beyond content", "abc\n", 1, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := lineEndColumn([]byte(tt.src), tt.row)
+			require.Equal(t, tt.expect, got)
+		})
+	}
+}
+
 func mustParsePHP(t *testing.T, src string) *parser.File {
 	t.Helper()
 	f, err := parser.Parse([]byte(src), file.TypePHP)

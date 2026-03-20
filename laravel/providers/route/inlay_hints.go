@@ -13,7 +13,30 @@ import (
 
 type controllerInfo struct {
 	FQN     string              // e.g. "App\Http\Controllers\HomeController"
-	Methods map[string]ts.Point // method name -> start position
+	Methods map[string]ts.Point // method name -> end-of-signature-line position
+}
+
+// lineEndColumn returns the byte column of the end of the given zero-indexed
+// row in src (i.e. the number of bytes before the newline, or end of file).
+func lineEndColumn(src []byte, row uint) uint {
+	var currentRow uint
+	lineStart := 0
+	for i, b := range src {
+		if currentRow == row {
+			if b == '\n' {
+				return uint(i - lineStart)
+			}
+		} else if b == '\n' {
+			currentRow++
+			if currentRow == row {
+				lineStart = i + 1
+			}
+		}
+	}
+	if currentRow == row {
+		return uint(len(src) - lineStart)
+	}
+	return 0
 }
 
 func parseControllerInfo(file *parser.File) *controllerInfo {
@@ -44,7 +67,11 @@ func parseControllerInfo(file *parser.File) *controllerInfo {
 					continue
 				}
 				if methodName := treesitter.NamedChildOfKind(member, "name"); methodName != nil {
-					methods[methodName.Utf8Text(file.Src)] = member.StartPosition()
+					startRow := member.StartPosition().Row
+					methods[methodName.Utf8Text(file.Src)] = ts.Point{
+						Row:    startRow,
+						Column: lineEndColumn(file.Src, startRow),
+					}
 				}
 			}
 		}
