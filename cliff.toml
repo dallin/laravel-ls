@@ -71,12 +71,13 @@ commit_parsers = [
     { message = "^perf", group = "Performance" },
     { message = "^refactor", group = "Refactoring" },
     { message = "^style", group = "Style" },
-    { message = "^revert", group = "Revert" },
     { message = "^test", group = "Tests" },
     { message = "^chore\\(version\\):", skip = true },
     { message = "^chore", group = "Miscellaneous Chores" },
-    { message = ".*", group = "Miscellaneous" },
     { body = ".*security", group = "Security" },
+    { message = "^revert", skip = true },
+    { message = "^merge", skip = true },
+    { message = ".*", group = "Miscellaneous" },
 ]
 # Exclude commits that are not matched by any commit parser.
 filter_commits = false
