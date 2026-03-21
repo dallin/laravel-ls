@@ -62,6 +62,7 @@ URL::route('dashboard');
 ```
 
 - [x] Hover information shows route definition
+- [x] Inline hints show resolved controller actions
 - [x] Go to definition
 - [x] Auto-complete existing route names
 - [ ] Auto-complete route arguments
