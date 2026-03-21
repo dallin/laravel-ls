@@ -3,6 +3,59 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 ---
+## [0.1.0](https://github.com/laravel-ls/laravel-ls/src/v0.1.0) - 2026-03-21
+
+### Bug Fixes
+
+- unroll the map loop in file.TypeByFilename ([923b58c](https://github.com/laravel-ls/laravel-ls/commit/923b58c0d7eb99cea64fb426e14155bfd68c02df))
+- revert formatting ([cbaac18](https://github.com/laravel-ls/laravel-ls/commit/cbaac18f1a75719cf2f614f5a1eabcbc466aa423))
+- lint format error ([bf474ca](https://github.com/laravel-ls/laravel-ls/commit/bf474ca9b9bb7817c6606018f8fb143312fddc4a))
+- update protocol, use inlayhints from pkg ([b02f296](https://github.com/laravel-ls/laravel-ls/commit/b02f29634e4dc78ec573ea493e9c3b0635d3de0d))
+
+### Documentation
+
+- **(CONTRIBUTING)** update golangci-lint instructions ([7b6c4ec](https://github.com/laravel-ls/laravel-ls/commit/7b6c4ec202f661d5ae50097e191794ce6999730b))
+- **(CONTRIBUTING)** add tip about format and organize imports on save ([700ee92](https://github.com/laravel-ls/laravel-ls/commit/700ee92cf5e60ad5a5f62744d2b9db42546a245b))
+- move neovim documentation to its own file ([243907d](https://github.com/laravel-ls/laravel-ls/commit/243907d0118696841f7e9fb32c68b281b942cca4))
+- add section about config file and cli parameters ([44d589b](https://github.com/laravel-ls/laravel-ls/commit/44d589b91d5bd99e7254444ddb4f1d9b344841b8))
+- add route inlay hints feature. ([7dc0a35](https://github.com/laravel-ls/laravel-ls/commit/7dc0a357814404034e00e963825b91adf42f60a3))
+- fix code indent ([a1b87fe](https://github.com/laravel-ls/laravel-ls/commit/a1b87fed41f3e8d32ab3bcd6dba6c5f83183c3e2))
+
+### Features
+
+- controller route inlay hints working ([d4d6386](https://github.com/laravel-ls/laravel-ls/commit/d4d638641685ac3e36e5569acd62eafad3b77dbd))
+- move inlay hint to right of controller ([e15edb0](https://github.com/laravel-ls/laravel-ls/commit/e15edb07a42d97482389430ff2d40a6cbd577323))
+
+### Miscellaneous
+
+- Add git-cliff ([c389270](https://github.com/laravel-ls/laravel-ls/commit/c389270f4c8f08f5c88c48526ed3733aa0028603))
+- controller route inlay hints now auto refresh on update ([d325de6](https://github.com/laravel-ls/laravel-ls/commit/d325de6f5e175e728d80d4247b360605ec77058f))
+- cleanup & tests ([bef9c69](https://github.com/laravel-ls/laravel-ls/commit/bef9c6916d673622672c53c9bb8499ec0fb67d99))
+- ability to configure lsp inlayHint capabilities by init_options ([79fe206](https://github.com/laravel-ls/laravel-ls/commit/79fe206b5cfcf759d3ba768c9b8548f975678e73))
+- update init_options path, remove capabilities ([9eaec02](https://github.com/laravel-ls/laravel-ls/commit/9eaec02bb91ba96d078b7a3a601e225d50f6148a))
+- add basic flake.nix dev shell ([432b566](https://github.com/laravel-ls/laravel-ls/commit/432b5661be105c7767f197625b4dc48f710cd2b4))
+- update gitignore ([f21c7da](https://github.com/laravel-ls/laravel-ls/commit/f21c7da4ef1289a8f18b898f47fc71a5d2e7c3a1))
+- add gopls to flake.nix ([df9f3f3](https://github.com/laravel-ls/laravel-ls/commit/df9f3f37d83c3fd441a1bb4a3cea5eebc994e855))
+- cleanup ([eb4c526](https://github.com/laravel-ls/laravel-ls/commit/eb4c52642d2ca69b0d2028c1721897652ff76784))
+- Merge pull request #1 from caliguIa/controller-route-inlay-hints ([b9340e7](https://github.com/laravel-ls/laravel-ls/commit/b9340e7f2909e6c6a38e0431717010d284ffe4f9))
+- update comment ([04648ea](https://github.com/laravel-ls/laravel-ls/commit/04648ea683d6373808e0ea98bea024648400f7ea))
+- Update inlay_hints_test.go ([595bd55](https://github.com/laravel-ls/laravel-ls/commit/595bd551620a3e12698e99c56fc930714664179a))
+- add support for ".tinker" files ([b730f9f](https://github.com/laravel-ls/laravel-ls/commit/b730f9f77d8f1d7465bc67bc0376d88225b7cf6a))
+- Add support for ".tinker" files ([#20](https://github.com/laravel-ls/laravel-ls/issues/20)) ([18ae382](https://github.com/laravel-ls/laravel-ls/commit/18ae3826ae7f2e874a8c2a44a784258af84c0dfe))
+- Merge branch 'laravel-ls:dev' into dev ([1107cf8](https://github.com/laravel-ls/laravel-ls/commit/1107cf8b5a377ea6b87cad0b2ec311c80a370f97))
+- Add controller route inlay hints ([#19](https://github.com/laravel-ls/laravel-ls/issues/19)) ([b1d7a83](https://github.com/laravel-ls/laravel-ls/commit/b1d7a839c239abfba31e9e9433b020726bc7f3bf))
+
+### Miscellaneous Chores
+
+- **(README)** vim.lsp.enable() must always be called. ([1d6452a](https://github.com/laravel-ls/laravel-ls/commit/1d6452afb60fd80c3fb0b3dec0875008ab507f1e))
+- **(go)** update laravel-ls/protocol to v0.1.0 ([2466b19](https://github.com/laravel-ls/laravel-ls/commit/2466b19225f0334fc4b9913aa9522cd0f59853f5))
+- update git-cliff config to ignore merge commits ([0b5e2c8](https://github.com/laravel-ls/laravel-ls/commit/0b5e2c8d4799d7a3794d4ba3bbbbb2db9959b823))
+
+### Performance
+
+- **(providers)** make sure ResolveCompletion exits early. ([e247541](https://github.com/laravel-ls/laravel-ls/commit/e247541a447529c50925945dc6c2767572a11b23))
+
+---
 ## [0.0.13](https://github.com/laravel-ls/laravel-ls/src/v0.0.13) - 2026-02-10
 
 ### Miscellaneous
