@@ -213,7 +213,7 @@ The config uses these keys:
 ```yaml
 log:
     filename: log
-level: info
+    level: info
 ```
 
 - `log.filename`: log file name relative to `basePath`
