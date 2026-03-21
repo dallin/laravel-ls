@@ -27,6 +27,12 @@ github.com/laravel-ls/protocol v0.0.0-20260301220821-3094133c242e h1:KC/W5bIthGT
 github.com/laravel-ls/protocol v0.0.0-20260301220821-3094133c242e/go.mod h1:d9vs9ABGd8/5GSxX5VDRRyXOPKYzNWpalwV/Z/vdSf0=
 github.com/laravel-ls/protocol v0.1.0 h1:IPgpENJatfaGiCcfm/08f3A88tN1wRbKlCFcEJI5UV8=
 github.com/laravel-ls/protocol v0.1.0/go.mod h1:d9vs9ABGd8/5GSxX5VDRRyXOPKYzNWpalwV/Z/vdSf0=
+github.com/laravel-ls/protocol v0.1.1-0.20260319114216-7cebe3d8180f h1:9+4YisTmfGxua5zKwbgbEly5soGJjcr99fcSlFCQIzo=
+github.com/laravel-ls/protocol v0.1.1-0.20260319114216-7cebe3d8180f/go.mod h1:d9vs9ABGd8/5GSxX5VDRRyXOPKYzNWpalwV/Z/vdSf0=
+github.com/laravel-ls/protocol v0.1.1-0.20260319132305-5fe36eb7d676 h1:QrdNIkroXbesZ+xmZRDasTZztnHV+BLbGl18FCKMYjA=
+github.com/laravel-ls/protocol v0.1.1-0.20260319132305-5fe36eb7d676/go.mod h1:d9vs9ABGd8/5GSxX5VDRRyXOPKYzNWpalwV/Z/vdSf0=
+github.com/laravel-ls/protocol v0.1.1 h1:dG0QRL4pYLtcFi+axEuVW49GzYj1UINMesBrh/fnO+0=
+github.com/laravel-ls/protocol v0.1.1/go.mod h1:d9vs9ABGd8/5GSxX5VDRRyXOPKYzNWpalwV/Z/vdSf0=
 github.com/laravel-ls/uri v0.0.1 h1:L8TcV6s4o92cmVQnkf8Cz0xd731xcIUFZvcd2o3W7Pc=
 github.com/laravel-ls/uri v0.0.1/go.mod h1:SJUHGrMb7GZNf0EZ1btQTaAlHYe/fOwHNZp2ovc+h00=
 github.com/magiconair/properties v1.8.7 h1:IeQXZAiQcpL9mgcAe1Nu6cX9LLw6ExEHKjN0VQdvPDY=

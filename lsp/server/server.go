@@ -33,6 +33,9 @@ type Server struct {
 	shutdownReceived bool
 
 	providerManager *provider.Manager
+
+	// config is parsed from initializationOptions during the initialize handshake.
+	config LSPConfig
 }
 
 func NewServer(providerManager *provider.Manager) *Server {
@@ -266,10 +269,21 @@ func (s Server) HandleTextDocumentDidChange(params protocol.DidChangeTextDocumen
 	return errs
 }
 
-func (s Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentParams) error {
+func (s *Server) HandleTextDocumentDidSave(params protocol.DidSaveTextDocumentParams) error {
 	log.WithField("method", protocol.MethodTextDocumentDidSave).
 		WithField("filename", params.TextDocument.URI).
 		Debug("Document saved")
+
+	filename, err := validateURI(params.TextDocument.URI)
+	if err != nil {
+		return err
+	}
+
+	// Fire-and-forget: the returned channel closes when providers finish
+	// re-warming, but the server does not wait for it. Callers that need to
+	// synchronise on cache readiness should await the channel themselves.
+	_ = s.providerManager.FileSaved(filename)
+
 	return nil
 }
 
@@ -298,6 +312,15 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.In
 		WithField("rootPath", rootPath).
 		Debug("Initialize")
 
+	if params.InitializationOptions != nil {
+		raw, err := json.Marshal(params.InitializationOptions)
+		if err != nil {
+			log.WithError(err).Warn("failed to marshal initializationOptions")
+		} else if err := json.Unmarshal(raw, &s.config); err != nil {
+			log.WithError(err).Warn("failed to parse initializationOptions")
+		}
+	}
+
 	s.providerManager.Init(provider.InitContext{
 		Logger:    log.WithField("module", "Initialize"),
 		RootPath:  rootPath,
@@ -318,12 +341,51 @@ func (s *Server) HandleInitialize(params protocol.InitializeParams) (protocol.In
 				WorkspaceDiagnostics:  false,
 			},
 			CodeActionProvider: true,
+			InlayHintProvider:  s.config.InlayHints.Routes.IsEnabled(),
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    program.Name,
 			Version: program.Version(),
 		},
 	}, nil
+}
+
+func (s *Server) HandleTextDocumentInlayHint(params protocol.InlayHintParams) ([]protocol.InlayHint, error) {
+	log.WithField("method", protocol.MethodTextDocumentInlayHint).
+		WithField("filename", params.TextDocument.URI).
+		Debug("InlayHint")
+
+	response := []protocol.InlayHint{}
+
+	if !s.config.InlayHints.Routes.IsEnabled() {
+		return response, nil
+	}
+
+	file, err := s.getFile(params.TextDocument)
+	if err != nil {
+		return response, err
+	}
+
+	s.providerManager.InlayHints(provider.InlayHintContext{
+		BaseContext: provider.BaseContext{
+			Logger:    log.WithField("module", "InlayHint"),
+			File:      file,
+			FileCache: s.cache,
+		},
+		Range: toTSRange(params.Range),
+		Publish: func(hint provider.InlayHint) {
+			paddingLeft := true
+			response = append(response, protocol.InlayHint{
+				Position:    FromTSPoint(hint.Position),
+				PaddingLeft: &paddingLeft,
+				Label: protocol.InlayHintLabel{
+					String: &hint.Label,
+				},
+			})
+		},
+	})
+
+	return response, nil
 }
 
 // Handle incoming LSP messages
@@ -393,6 +455,12 @@ func (s *Server) dispatch(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc
 		log.WithField("method", protocol.MethodInitialized).
 			Debug("Initialized")
 		return nil, nil
+	case protocol.MethodTextDocumentInlayHint:
+		var params protocol.InlayHintParams
+		if err := json.Unmarshal(*req.Params, &params); err != nil {
+			return nil, err
+		}
+		return s.HandleTextDocumentInlayHint(params)
 	case "$/cancelRequest":
 		// See https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#cancelRequest
 		// TODO: Maybe implement a way to cancel requests?

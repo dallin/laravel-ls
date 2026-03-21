@@ -96,4 +96,9 @@ $routes = new class {
     }
 };
 
-echo $routes->all()->filter(fn($route) => !empty($route['name']))->mapWithKeys(fn($route) => [$route['name'] => $route])->toJson();
+echo $routes->all()->mapWithKeys(function($route) {
+    // Named routes keep their name as key (used for route() completion/hover/diagnostics).
+    // Unnamed routes are keyed by action::uri so they are still available for inlay hints.
+    $key = !empty($route['name']) ? $route['name'] : ($route['action'] . '::' . $route['uri']);
+    return [$key => $route];
+})->toJson();
